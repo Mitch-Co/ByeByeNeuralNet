@@ -1,4 +1,5 @@
-﻿using static System.Net.Mime.MediaTypeNames;
+﻿using System.Data;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace ByeByeNeuralNet
 {
@@ -6,19 +7,100 @@ namespace ByeByeNeuralNet
     {
         static void Main(string[] args)
         {
-            IEnumerable<Image> trainSet = MnistReader.ReadTrainingData();
-            foreach(Image i in trainSet)
+            Random rnd = new Random();
+            List<Image> trainSet = MnistReader.ReadTrainingData().ToList();
+            //IEnumerable<Image> testSet = MnistReader.ReadTestData();
+
+            int[] layerSizes = { 784, 20, 20, 10 };
+
+            List<float[]> valuesList = new List<float[]>();
+            List<byte[]> weightsList = new List<byte[]>();
+            for (int i = 0; i < layerSizes.Length; i++)
             {
-                Console.WriteLine(i.Label.ToString());
+                int weightsSize = layerSizes[i];
+                if (i != layerSizes.Length - 1)
+                {
+                    weightsSize = layerSizes[i] * layerSizes[i + 1];
+                }
+
+                byte[] tempWeights = new byte[weightsSize];
+                for (int j = 0; j < weightsSize; j++)
+                {
+                    tempWeights[j] = (byte)rnd.Next(0, 256);
+                }
+                weightsList.Add(tempWeights);
+
+                valuesList.Add(new float[layerSizes[i]]);
+
             }
-       
+
+            float[][] values = valuesList.ToArray();
+            byte[][] weights = weightsList.ToArray();
+
+
+            int correctGuesses = 0;
+            int guesses = 0;
+            foreach(Image image in trainSet)
+            {
+                if (Guess(layerSizes, values, weights, image) == image.Label)
+                {
+                    correctGuesses++;
+                }
+                guesses++;
+                
+            }
+
+            Console.WriteLine("ERROR RATE = " + ((double) correctGuesses / (double)guesses).ToString());
+
+
         }
+
+        static int Guess(int[] layerSizes,  float[][] values, byte[][] weights, Image image)
+        {
+            // Load image
+            for(int i = 0; i < values[0].Length; i++)
+            {
+                values[0][i] = image.Data[i] / 255.00f;
+            }
+
+            // foreach layer
+            for (int layNum = 0; layNum < layerSizes.Length - 1; layNum++)
+            {
+                int layerSize = layerSizes[layNum];
+                int nextLayerSize = layerSizes[layNum + 1];
+                int numWeights = weights[layNum].Length;
+
+                // foreach value in layer
+                for (int valNum = 0; valNum < values[layNum].Length; valNum++)
+                {
+                    // foreach weight assigned to that value
+                    for(int weightNum = 0; weightNum < nextLayerSize; weightNum++)
+                    {
+                        byte weightValue = weights[layNum][weightNum * valNum];
+                        values[layNum + 1][weightNum] += (values[layNum][valNum] * (weightValue / 255.00f)) / (float)layerSize;
+                    }
+                }
+            }
+
+            int maxIndex = 0;
+            for(int i = 0; i < values[layerSizes.Length - 1].Length; i++)
+            {
+                if (values[layerSizes.Length - 1][i] > values[layerSizes.Length - 1][maxIndex])
+                {
+                    maxIndex = i;
+                }
+            }
+
+            return maxIndex;
+        }
+
     }
 
     // Classes MnistReader, Image, and Extensions pulled from
     // https://stackoverflow.com/questions/49407772/reading-mnist-database
     // https://stackoverflow.com/users/3715778/koryakinp
     // https://stackoverflow.blog/2009/06/25/attribution-required/
+    // *Has been modified*
     public static class MnistReader
     {
         private const string TrainImages = "mnist/train-images-idx3-ubyte";
@@ -56,15 +138,17 @@ namespace ByeByeNeuralNet
 
             for (int i = 0; i < numberOfImages; i++)
             {
-                var bytes = images.ReadBytes(width * height);
-                var arr = new byte[height, width];
+                byte[] bytes = images.ReadBytes(width * height);
+                byte[,] arrFolded = new byte[height, width];
+                
+                arrFolded.ForEach((j, k) => arrFolded[j, k] = bytes[j * height + k]);
 
-                arr.ForEach((j, k) => arr[j, k] = bytes[j * height + k]);
-
+                // Sketch .ReadByte() usage 
                 yield return new Image()
                 {
-                    Data = arr,
-                    Label = labels.ReadByte()
+                    Label = labels.ReadByte(),
+                    Data = bytes,
+                    DataFolded = arrFolded,
                 };
             }
         }
@@ -72,7 +156,9 @@ namespace ByeByeNeuralNet
     public class Image
     {
         public byte Label { get; set; }
-        public byte[,] Data { get; set; }
+        public byte[] Data { get; set; }
+        public byte[,] DataFolded { get; set; }
+
     }
 
     public static class Extensions

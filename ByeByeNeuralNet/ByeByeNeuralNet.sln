@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34031.279
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ByeByeNeuralNet", "ByeByeNeuralNet.csproj", "{7C15038A-53D1-4555-8FEE-A8EEEC413A85}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7C15038A-53D1-4555-8FEE-A8EEEC413A85}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C15038A-53D1-4555-8FEE-A8EEEC413A85}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C15038A-53D1-4555-8FEE-A8EEEC413A85}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C15038A-53D1-4555-8FEE-A8EEEC413A85}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {58640B72-48D7-44C7-84B5-5A2F2DAE92FF}
+	EndGlobalSection
+EndGlobal

@@ -1,10 +1,17 @@
-﻿namespace ByeByeNeuralNet
+﻿using static System.Net.Mime.MediaTypeNames;
+
+namespace ByeByeNeuralNet
 {
     internal class Program
     {
         static void Main(string[] args)
         {
             IEnumerable<Image> trainSet = MnistReader.ReadTrainingData();
+            foreach(Image i in trainSet)
+            {
+                Console.WriteLine(i.Label.ToString());
+            }
+       
         }
     }
 
@@ -14,11 +21,10 @@
     // https://stackoverflow.blog/2009/06/25/attribution-required/
     public static class MnistReader
     {
-        private const string TrainImages = "mnist/train-images.idx3-ubyte";
-        private const string TrainLabels = "mnist/train-labels.idx1-ubyte";
-        private const string TestImages = "mnist/t10k-images.idx3-ubyte";
-        private const string TestLabels = "mnist/t10k-labels.idx1-ubyte";
-
+        private const string TrainImages = "mnist/train-images-idx3-ubyte";
+        private const string TrainLabels = "mnist/train-labels-idx1-ubyte";
+        private const string TestImages = "mnist/t10k-images-idx3-ubyte";
+        private const string TestLabels = "mnist/t10k-labels-idx1-ubyte";
         public static IEnumerable<Image> ReadTrainingData()
         {
             foreach (var item in Read(TrainImages, TrainLabels))

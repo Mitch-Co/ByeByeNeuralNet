@@ -57,8 +57,18 @@ namespace ByeByeNeuralNet
 
         static int Guess(int[] layerSizes,  float[][] values, byte[][] weights, Image image)
         {
+            // Make sure to clear the values!
+            for (int i = 0; i < values.Length; i++)
+            {
+                for (int j = 0; j < values[i].Length; j++)
+                {
+                    values[i][j] = 0f;
+                }
+
+            }
+
             // Load image
-            for(int i = 0; i < values[0].Length; i++)
+            for (int i = 0; i < values[0].Length; i++)
             {
                 values[0][i] = image.Data[i] / 255.00f;
             }

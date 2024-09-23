@@ -31,13 +31,38 @@ namespace ByeByeNeuralNet
             return weightsList.ToArray();
         }
 
-        static void addWeights(ref float[][] origin, float[][] toadd)
+        static void addWeights(float[][] origin, float[][] toadd, int bufferCount, int bufferCountCorrect)
         {
+            if (bufferCount == 0)
+            {
+                bufferCount = 1;
+            }
             for (int i = 0; i < origin.Length;i++)
             {
                 for (int j = 0;j < origin[i].Length;j++)
                 {
-                    origin[i][j] *= toadd[i][j];
+                    float absDiff = Math.Abs(origin[i][j] + toadd[i][j]); 
+                    if (origin[i][j] > toadd[i][j])
+                    {
+                        absDiff *= -1f;
+                    }
+
+                    origin[i][j] = origin[i][j] + (absDiff);
+
+
+                }
+            }
+        }
+
+        static void copyWeights(float[][] copyFrom, float[][] copyTo)
+        {
+
+            for (int i = 0; i < copyFrom.Length; i++)
+            {
+                for (int j = 0; j < copyFrom[i].Length; j++)
+                {
+                    copyTo[i][j] = copyFrom[i][j];
+
                 }
             }
         }
@@ -47,7 +72,7 @@ namespace ByeByeNeuralNet
             List<Image> trainSet = MnistReader.ReadTrainingData().ToList();
             //IEnumerable<Image> testSet = MnistReader.ReadTestData();
 
-            int[] layerSizes = { 784, 20, 20, 10 };
+            int[] layerSizes = { 784, 16, 16, 10 };
 
             List<float[]> valuesList = new List<float[]>();
             List<float[]> weightsList = new List<float[]>();
@@ -57,36 +82,88 @@ namespace ByeByeNeuralNet
             }
 
             float[][] values = valuesList.ToArray();
-            float[][] weights = newRandomWeights(layerSizes, rnd);
+            float[][] weightsSum = newRandomWeights(layerSizes, rnd);
+            float[][] weightsCurrent = newRandomWeights(layerSizes, rnd);
 
             int correctGuesses = 0;
             int guesses = 0;
             int overallGuesses = 0;
             int overallCorrect = 0;
-            foreach(Image image in trainSet)
+
+            int bufferCount = 0;
+            int bufferCountCorrect = 0;
+            while(true)
             {
-                //Console.WriteLine("OG MODEL GUESS = " + Guess(layerSizes, values, weights, image).ToString() + " LABEL = " + image.Label.ToString());
-                if (Guess(layerSizes, values, weights, image) == image.Label)
+                foreach (Image image in trainSet)
                 {
-                    correctGuesses++;
-                    overallCorrect++;
-                    
+                    //Console.WriteLine("OG MODEL GUESS = " + Guess(layerSizes, values, weights, image).ToString() + " LABEL = " + image.Label.ToString());
+
+
+                    if (Guess(layerSizes, values, weightsSum, image) == image.Label)
+                    {
+
+                        bufferCountCorrect++;
+                        correctGuesses++;
+                        overallCorrect++;
+
+                    }
+                    else
+                    {
+
+                        weightsCurrent = newRandomWeights(layerSizes, rnd);
+                        float[][] copy = newRandomWeights(layerSizes, rnd);
+                        copyWeights(weightsSum, copy);
+                        addWeights(copy, weightsCurrent, bufferCount, bufferCountCorrect);
+                        while (true)
+                        {
+                            if (Guess(layerSizes, values, copy, image) == image.Label)
+                            {
+                                addWeights(weightsSum, weightsCurrent, bufferCount, bufferCountCorrect);
+                                break;
+                            }
+                            else
+                            {
+                                while (true)
+                                {
+                                    weightsCurrent = newRandomWeights(layerSizes, rnd);
+                                    if(Guess(layerSizes, values, weightsCurrent, image) == image.Label)
+                                    {
+                                        break;
+                                    }
+                                }
+                                addWeights(copy, weightsCurrent, bufferCount, bufferCountCorrect);
+                            }
+                        }
+                       
+
+                    }
+
+
+
+                    bufferCount++;
+                    guesses++;
+                    overallGuesses++;
+
+                    if (bufferCount >= 100)
+                    {
+                        bufferCount = 0;
+                        bufferCountCorrect = 0;
+                    }
+
+                    if (guesses == 100)
+                    {
+                        Console.WriteLine("ERROR RATE = " + ((double)correctGuesses / (double)guesses).ToString() + " " + weightsSum[0][0].ToString());
+                        guesses = 0;
+                        correctGuesses = 0;
+
+                    }
+
+
                 }
-                guesses++;
-                overallGuesses++;
 
-                if (guesses == 1000)
-                {
-                    Console.WriteLine("ERROR RATE = " + ((double)correctGuesses / (double)guesses).ToString() + " " + weights[0][0].ToString());
-                    guesses = 0;
-                    correctGuesses = 0;
-
-                }
-
-                
+                Console.WriteLine("Overall Error Rate = " + ((double)overallCorrect / (double)overallGuesses).ToString());
             }
 
-            Console.WriteLine("Overall Error Rate = " + ((double)overallCorrect / (double)overallGuesses).ToString());
 
         }
 
@@ -118,13 +195,18 @@ namespace ByeByeNeuralNet
                 // foreach value in layer
                 for (int valNum = 0; valNum < values[layNum].Length; valNum++)
                 {
+                    if (values[layNum][valNum] > 1f)
+                    {
+                        values[layNum][valNum] = 1f;
+                    }
                     // foreach weight assigned to that value
-                    for(int weightNum = 0; weightNum < nextLayerSize; weightNum++)
+                    for (int weightNum = 0; weightNum < nextLayerSize; weightNum++)
                     {
                         float weightValue = weights[layNum][weightNum * valNum];
-                        values[layNum + 1][weightNum] += ((values[layNum][valNum] * weightValue)  / (float)layerSize);
+                        values[layNum + 1][weightNum] += (values[layNum][valNum] * (weightValue  / (float)layerSize));
                         
                     }
+
                 }
             }
 
@@ -137,115 +219,14 @@ namespace ByeByeNeuralNet
                     maxIndex = i;
                 }
 
-                //Console.Write(values[layerSizes.Length - 1][i].ToString() + " ");
+               //Console.Write(values[layerSizes.Length - 1][i].ToString() + " ");
             }
             //Console.Write("]");
-            bool pushFromCenter = false;
-            bool isCorrect = false;
-            if (maxIndex == (int)image.Label)
-            {
-                pushFromCenter = true;
-                isCorrect = true;
-            }
-
-            // foreach layer
-            for (int layNum = 0; layNum < layerSizes.Length - 1; layNum++)
-            {
-                // foreach weight
-                for (int weightNum = 0; weightNum < weights[layNum].Length; weightNum++)
-                {
-
-                    float currentWeight = weights[layNum][weightNum];
-                    float bubble = 0;
-
-
-                    if(isCorrect)
-                    {
-                        weights[layNum][weightNum] = weights[layNum][weightNum] / 2f; 
-                    }
-                    else
-                    {
-                        weights[layNum][weightNum] = weights[layNum][weightNum] * 2f;
-                    }
-
-                    if(weights[layNum][weightNum] > 0.999f)
-                    {
-                        weights[layNum][weightNum] = 0.998f;
-                    }
-                    if (weights[layNum][weightNum] < 0.001f)
-                    {
-                        weights[layNum][weightNum] = 0.001f;
-                    }
-                }
-            }
 
 
             return maxIndex;
+           
 
-
-
-        }
-
-        static float increaseClamp(float toIncrease)
-        {
-            double closeness = Math.Truncate(toIncrease);
-
-            if(closeness > 0.95f)
-            {
-                return toIncrease + 0.051f;
-            }
-            if (closeness > 0.90f)
-            {
-                return toIncrease + 0.005f;
-            }
-            if (closeness > 0.80f)
-            {
-                return toIncrease + 0.01f;
-            }
-            if (closeness > 0.70f)
-            {
-                return toIncrease + 0.04f;
-            }
-            if (closeness > 0.60f)
-            {
-                return toIncrease + 0.05f;
-            }
-            return toIncrease + 0.06f;
-        }
-
-        static float decreaseClamp(float toDecrease)
-        {
-            double closeness = Math.Truncate(toDecrease);
-
-            if (closeness > 0.95f)
-            {
-                return toDecrease - 0.005f;
-            }
-            if (closeness > 0.90f)
-            {
-                return toDecrease - 0.01f;
-            }
-            if (closeness > 0.80f)
-            {
-                return toDecrease - 0.02f;
-            }
-            if (closeness > 0.70f)
-            {
-                return toDecrease - 0.04f;
-            }
-            if (closeness > 0.60f)
-            {
-                return toDecrease - 0.05f;
-            }
-            if (closeness > 0.5f)
-            {
-                return toDecrease - 0.05f;
-            }
-            if(closeness < 0.1f)
-            {
-                return toDecrease - 0.006f;
-            }
-            return toDecrease - 0.03f;
         }
 
     }

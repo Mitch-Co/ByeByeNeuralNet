@@ -5,6 +5,42 @@ namespace ByeByeNeuralNet
 {
     internal class Program
     {
+
+        static float[][] newRandomWeights(int[] layerSizes, Random rnd)
+        {
+            
+            List<float[]> weightsList = new List<float[]>();
+            for (int i = 0; i < layerSizes.Length; i++)
+            {
+                int weightsSize = layerSizes[i];
+                if (i != layerSizes.Length - 1)
+                {
+                    weightsSize = layerSizes[i] * layerSizes[i + 1];
+                }
+
+                float[] tempWeights = new float[weightsSize];
+                for (int j = 0; j < weightsSize; j++)
+                {
+                    
+                    tempWeights[j] = ((float)rnd.Next(0, 256) /255f);
+
+                }
+                weightsList.Add(tempWeights);
+            }
+
+            return weightsList.ToArray();
+        }
+
+        static void addWeights(ref float[][] origin, float[][] toadd)
+        {
+            for (int i = 0; i < origin.Length;i++)
+            {
+                for (int j = 0;j < origin[i].Length;j++)
+                {
+                    origin[i][j] *= toadd[i][j];
+                }
+            }
+        }
         static void Main(string[] args)
         {
             Random rnd = new Random();
@@ -14,53 +50,62 @@ namespace ByeByeNeuralNet
             int[] layerSizes = { 784, 20, 20, 10 };
 
             List<float[]> valuesList = new List<float[]>();
-            List<byte[]> weightsList = new List<byte[]>();
+            List<float[]> weightsList = new List<float[]>();
             for (int i = 0; i < layerSizes.Length; i++)
             {
-                int weightsSize = layerSizes[i];
-                if (i != layerSizes.Length - 1)
-                {
-                    weightsSize = layerSizes[i] * layerSizes[i + 1];
-                }
-
-                byte[] tempWeights = new byte[weightsSize];
-                for (int j = 0; j < weightsSize; j++)
-                {
-                    tempWeights[j] = (byte)rnd.Next(0, 256);
-                }
-                weightsList.Add(tempWeights);
-
                 valuesList.Add(new float[layerSizes[i]]);
-
             }
 
             float[][] values = valuesList.ToArray();
-            byte[][] weights = weightsList.ToArray();
-
+            float[][] weights = newRandomWeights(layerSizes, rnd);
 
             int correctGuesses = 0;
             int guesses = 0;
+            int overallGuesses = 0;
+            int overallCorrect = 0;
             foreach(Image image in trainSet)
             {
+                //Console.WriteLine("OG MODEL GUESS = " + Guess(layerSizes, values, weights, image).ToString() + " LABEL = " + image.Label.ToString());
                 if (Guess(layerSizes, values, weights, image) == image.Label)
                 {
                     correctGuesses++;
+                    overallCorrect++;
+                    
                 }
                 guesses++;
+                overallGuesses++;
+
+                if (guesses == 1000)
+                {
+                    Console.WriteLine("ERROR RATE = " + ((double)correctGuesses / (double)guesses).ToString() + " " + weights[0][0].ToString());
+                    guesses = 0;
+                    correctGuesses = 0;
+
+                }
+
                 
             }
 
-            Console.WriteLine("ERROR RATE = " + ((double) correctGuesses / (double)guesses).ToString());
-
+            Console.WriteLine("Overall Error Rate = " + ((double)overallCorrect / (double)overallGuesses).ToString());
 
         }
 
-        static int Guess(int[] layerSizes,  float[][] values, byte[][] weights, Image image)
+        static int Guess(int[] layerSizes,  float[][] values,  float[][] weights, Image image)
         {
-            // Load image
-            for(int i = 0; i < values[0].Length; i++)
+            Random rnd = new Random();
+            for (int i = 0; i < values.Length; i++)
             {
-                values[0][i] = image.Data[i] / 255.00f;
+                for (int j = 0; j < values[i].Length; j++)
+                {
+                    values[i][j] = 0f;
+                }
+
+            }
+
+            // Load image
+            for (int i = 0; i < values[0].Length; i++)
+            {
+                values[0][i] = (float)image.Data[i] / 255f;
             }
 
             // foreach layer
@@ -76,12 +121,14 @@ namespace ByeByeNeuralNet
                     // foreach weight assigned to that value
                     for(int weightNum = 0; weightNum < nextLayerSize; weightNum++)
                     {
-                        byte weightValue = weights[layNum][weightNum * valNum];
-                        values[layNum + 1][weightNum] += (values[layNum][valNum] * (weightValue / 255.00f)) / (float)layerSize;
+                        float weightValue = weights[layNum][weightNum * valNum];
+                        values[layNum + 1][weightNum] += ((values[layNum][valNum] * weightValue)  / (float)layerSize);
+                        
                     }
                 }
             }
 
+            //Console.Write("[");
             int maxIndex = 0;
             for(int i = 0; i < values[layerSizes.Length - 1].Length; i++)
             {
@@ -89,9 +136,116 @@ namespace ByeByeNeuralNet
                 {
                     maxIndex = i;
                 }
+
+                //Console.Write(values[layerSizes.Length - 1][i].ToString() + " ");
+            }
+            //Console.Write("]");
+            bool pushFromCenter = false;
+            bool isCorrect = false;
+            if (maxIndex == (int)image.Label)
+            {
+                pushFromCenter = true;
+                isCorrect = true;
             }
 
+            // foreach layer
+            for (int layNum = 0; layNum < layerSizes.Length - 1; layNum++)
+            {
+                // foreach weight
+                for (int weightNum = 0; weightNum < weights[layNum].Length; weightNum++)
+                {
+
+                    float currentWeight = weights[layNum][weightNum];
+                    float bubble = 0;
+
+
+                    if(isCorrect)
+                    {
+                        weights[layNum][weightNum] = weights[layNum][weightNum] / 2f; 
+                    }
+                    else
+                    {
+                        weights[layNum][weightNum] = weights[layNum][weightNum] * 2f;
+                    }
+
+                    if(weights[layNum][weightNum] > 0.999f)
+                    {
+                        weights[layNum][weightNum] = 0.998f;
+                    }
+                    if (weights[layNum][weightNum] < 0.001f)
+                    {
+                        weights[layNum][weightNum] = 0.001f;
+                    }
+                }
+            }
+
+
             return maxIndex;
+
+
+
+        }
+
+        static float increaseClamp(float toIncrease)
+        {
+            double closeness = Math.Truncate(toIncrease);
+
+            if(closeness > 0.95f)
+            {
+                return toIncrease + 0.051f;
+            }
+            if (closeness > 0.90f)
+            {
+                return toIncrease + 0.005f;
+            }
+            if (closeness > 0.80f)
+            {
+                return toIncrease + 0.01f;
+            }
+            if (closeness > 0.70f)
+            {
+                return toIncrease + 0.04f;
+            }
+            if (closeness > 0.60f)
+            {
+                return toIncrease + 0.05f;
+            }
+            return toIncrease + 0.06f;
+        }
+
+        static float decreaseClamp(float toDecrease)
+        {
+            double closeness = Math.Truncate(toDecrease);
+
+            if (closeness > 0.95f)
+            {
+                return toDecrease - 0.005f;
+            }
+            if (closeness > 0.90f)
+            {
+                return toDecrease - 0.01f;
+            }
+            if (closeness > 0.80f)
+            {
+                return toDecrease - 0.02f;
+            }
+            if (closeness > 0.70f)
+            {
+                return toDecrease - 0.04f;
+            }
+            if (closeness > 0.60f)
+            {
+                return toDecrease - 0.05f;
+            }
+            if (closeness > 0.5f)
+            {
+                return toDecrease - 0.05f;
+            }
+            if(closeness < 0.1f)
+            {
+                return toDecrease - 0.006f;
+            }
+            return toDecrease - 0.03f;
         }
 
     }
